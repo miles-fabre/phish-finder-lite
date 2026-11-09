@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phish Finder</title>
+  <!-- Fonts are optional: if the school network blocks Google Fonts, the fallbacks are used. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;700;800&display=swap">
+  <style>
+    /* =====================================================
+       1. COLORS + BASICS (same as play.html)
+       ===================================================== */
+    :root {
+      --ink: #0a2f4f;
+      --deep: #073b5c;
+      --sea: #2a8fc4;
+      --foam: #e6f6ff;
+      --sand: #fff6df;
+      --sun: #ffc93c;
+      --coral: #e8453c;
+      --kelp: #16955a;
+      --kelp-soft: #d9f7e6;
+      --shell: #ff9fb6;
+      --brass: #f4c45a;
+      --brass-dark: #b98a1f;
+      --head: "Baloo 2", "Trebuchet MS", "Arial Rounded MT Bold", sans-serif;
+      --text: "Nunito", "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--text);
+      font-size: 20px;
+      line-height: 1.5;
+      color: var(--ink);
+      background: #1b84bf;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3 { font-family: var(--head); margin: 0; line-height: 1.15; }
+    button, input { font: inherit; color: inherit; }
+
+    /* Text only screen readers hear */
+    .sr {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
+    /* =====================================================
+       2. THE OCEAN BACKGROUND (copied from play.html)
+       ===================================================== */
+    .ocean {
+      position: fixed; inset: 0; z-index: 0;
+      pointer-events: none; overflow: hidden;
+      background: linear-gradient(180deg, #9be3ff 0%, #45b6e6 35%, #1b84bf 70%, #0c5a8c 100%);
+    }
+    .rays {
+      position: absolute; top: -10%; left: -50%; right: -50%; height: 75%;
+      background: repeating-linear-gradient(100deg, rgba(255,255,255,0.16) 0 40px, transparent 40px 130px);
+      filter: blur(8px);
+      -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
+              mask-image: linear-gradient(to bottom, #000, transparent);
+      animation: rays 9s ease-in-out infinite alternate;
+    }
+    @keyframes rays { from { transform: translateX(-30px) skewX(-4deg); opacity: .7; }
+                      to   { transform: translateX(30px)  skewX(4deg);  opacity: 1; } }
+
+    .bg-bubble {
+      position: absolute; bottom: -40px; left: var(--x);
+      width: var(--s); height: var(--s); border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.55);
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.8), rgba(255,255,255,.1) 35%, transparent 60%);
+      animation: rise var(--d) linear var(--delay) infinite;
+    }
+    @keyframes rise {
+      0%   { transform: translate(0, 0); }
+      50%  { transform: translate(18px, -55vh); }
+      100% { transform: translate(-6px, -115vh); }
+    }
+
+    .swimmer {
+      position: absolute; left: 100%; top: var(--y);
+      width: var(--size, 64px); opacity: var(--alpha, .85);
+      animation: swim var(--d) linear var(--delay) infinite;
+    }
+    .swimmer svg { display: block; width: 100%; animation: fishbob 1.6s ease-in-out infinite alternate; }
+    @keyframes swim {
+      0%   { transform: translate(0, 0); }
+      50%  { transform: translate(calc(-50vw - 60px), 14px); }
+      100% { transform: translate(calc(-100vw - 160px), 0); }
+    }
+    @keyframes fishbob { from { transform: translateY(-3px) rotate(-3deg); } to { transform: translateY(3px) rotate(3deg); } }
+
+    .caustics {
+      position: absolute; inset: 0 -10% 45% -10%; opacity: .4;
+      background:
+        radial-gradient(ellipse 140px 40px at 15% 8%,  rgba(255,255,255,.55), transparent 70%),
+        radial-gradient(ellipse 180px 50px at 55% 4%,  rgba(255,255,255,.5),  transparent 70%),
+        radial-gradient(ellipse 110px 34px at 85% 12%, rgba(255,255,255,.55), transparent 70%);
+      animation: caustics 7s ease-in-out infinite alternate;
+    }
+    @keyframes caustics { to { transform: translateX(40px) scaleX(1.1); opacity: .22; } }
+
+    .reef { position: absolute; left: 0; bottom: 0; width: 100%; height: 240px; }
+    .kelp { animation: sway 4.5s ease-in-out infinite alternate; }
+    .kelp.k2 { animation-duration: 3.6s; animation-delay: -1.2s; }
+    .kelp.k3 { animation-duration: 5.2s; animation-delay: -2.4s; }
+    @keyframes sway { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+
+    /* =====================================================
+       3. PAGE LAYOUT
+       ===================================================== */
+    main {
+      position: relative; z-index: 1;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 24px 16px 140px;      /* room at the bottom so the reef shows */
+    }
+
+    /* The big wavy title: each letter is its own <span> (added by JS) */
+    .logo {
+      text-align: center;
+      font-size: clamp(48px, 13vw, 92px);
+      font-weight: 800;
+      color: var(--sun);
+      text-shadow: 3px 0 0 var(--deep), -3px 0 0 var(--deep), 0 3px 0 var(--deep), 0 -3px 0 var(--deep),
+                   2px 2px 0 var(--deep), -2px -2px 0 var(--deep), 2px -2px 0 var(--deep), -2px 2px 0 var(--deep),
+                   0 8px 0 var(--deep);
+      white-space: nowrap;
+    }
+    .logo .rod { font-size: .8em; text-shadow: none; }
+    .logo span { display: inline-block; animation: wave 2.2s ease-in-out infinite; animation-delay: calc(var(--i) * .08s); }
+    @keyframes wave { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-12px); } }
+
+    /* =====================================================
+       4. OLLIE + SPEECH BUBBLE
+       ===================================================== */
+    .guide { display: flex; align-items: flex-end; gap: 12px; margin: 14px 0 22px; }
+    .ollie { flex-shrink: 0; width: 120px; height: 120px; margin-bottom: -8px; }
+    .bubble {
+      position: relative; flex: 1;
+      padding: 14px 18px;
+      border-radius: 22px;
+      background: #fff;
+      box-shadow: 0 6px 0 var(--deep);
+    }
+    .bubble::before {               /* little tail pointing at Ollie */
+      content: ""; position: absolute; left: -12px; bottom: 22px;
+      border: 12px solid transparent; border-left: 0; border-right-color: #fff;
+    }
+    .say { margin: 0; font-family: var(--head); font-size: 24px; font-weight: 800; line-height: 1.25; }
+    .say-small { margin: 6px 0 0; font-size: 19px; font-weight: 700; }
+    .bubble.pop { animation: bubblePop .3s ease-out; }
+    @keyframes bubblePop { from { transform: scale(.94); } }
+
+    /* =====================================================
+       5. THE SHELL MAIL CARD
+       ===================================================== */
+    .card {
+      position: relative;
+      background: #fff;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 8px 0 var(--deep), 0 18px 40px rgba(0,0,0,.2);
+    }
+    .app-bar {
+      position: relative;
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 20px;
+      background: var(--shell);
+      box-shadow: inset 0 3px 0 rgba(255,255,255,.45);
+      color: #5a1030;
+      font-family: var(--head); font-weight: 800; font-size: 22px;
+    }
+    .app-bar::after {               /* scalloped shell edge */
+      content: ""; position: absolute; left: 0; right: 0; bottom: -9px; height: 10px; z-index: 1;
+      background: radial-gradient(circle at 10px 0, var(--shell) 9px, transparent 9.5px) repeat-x;
+      background-size: 20px 10px;
+    }
+    .card-body { padding: 28px 20px 24px; }
+    @media (min-width: 600px) { .card-body { padding: 32px 32px 28px; } }
+
+    .step + .step { margin-top: 30px; }
+    .step-title {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 12px;
+      font-size: 26px; font-weight: 800;
+    }
+    .step-num {                     /* a little brass porthole with the step number */
+      flex-shrink: 0;
+      display: grid; place-items: center;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: radial-gradient(circle at 50% 30%, #f2fbff, #c4eafc 55%, #8ed0f2);
+      border: 4px solid var(--brass);
+      box-shadow: 0 0 0 2px var(--brass-dark);
+      font-size: 22px; line-height: 1;
+    }
+    .step-done .step-num { background: var(--kelp); color: #fff; }
+
+    .hint { margin: 8px 0 0; font-size: 17px; font-weight: 700; color: #4a6a80; text-align: center; }
+
+    /* ---------- Nickname grid ----------
+       Each choice is a real radio button (hidden) + a big label tile.
+       Radios give keyboard arrow-key support and "only one" for free. */
+    .nick-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin: 0; padding: 0; border: 0;
+    }
+    @media (min-width: 560px) { .nick-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 740px) { .nick-grid { grid-template-columns: repeat(4, 1fr); } }
+
+    .nick input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+    .nick label {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      height: 100%;
+      min-height: 132px;
+      padding: 12px 8px;
+      border: 4px solid #d6e9f4;
+      border-radius: 22px;
+      background: var(--sand);
+      text-align: center;
+      font-family: var(--head);
+      font-size: 19px; font-weight: 800; line-height: 1.15;
+      cursor: pointer;
+      touch-action: manipulation;          /* no double-tap zoom */
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 5px 0 #c9dce8;
+      transition: transform .1s, border-color .15s, background-color .15s;
+    }
+    .nick label:active { transform: translateY(3px); box-shadow: 0 2px 0 #c9dce8; }
+    .nick-porthole {                      /* brass porthole around each emoji */
+      display: grid; place-items: center;
+      width: 66px; height: 66px; border-radius: 50%;
+      background: radial-gradient(circle at 50% 30%, #f2fbff, #c4eafc 55%, #8ed0f2);
+      border: 5px solid var(--brass);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.75), 0 0 0 2px var(--brass-dark);
+      font-size: 36px; line-height: 1;
+    }
+    /* Picked! */
+    .nick input:checked + label {
+      border-color: var(--kelp);
+      background: var(--kelp-soft);
+      box-shadow: 0 5px 0 var(--kelp);
+      animation: picked .35s ease-out;
+    }
+    .nick input:checked + label .nick-porthole { border-color: var(--kelp); box-shadow: 0 0 0 2px #0c5c33; }
+    .nick input:checked + label::after { content: "✓ That's me!"; font-size: 15px; color: #0c5c33; }
+    .nick input:focus-visible + label { outline: 4px solid var(--sea); outline-offset: 3px; }
+    @keyframes picked { 40% { transform: scale(1.07) rotate(-2deg); } }
+
+    /* ---------- Dive in! button ---------- */
+    .dive-wrap { margin-top: 30px; text-align: center; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; max-width: 420px;
+      min-height: 84px;
+      padding: 12px 30px;
+      border: none; border-radius: 24px;
+      background-color: var(--sun);
+      background-image: linear-gradient(180deg, rgba(255,255,255,.38), rgba(255,255,255,0) 55%);
+      color: var(--ink);
+      font-family: var(--head); font-size: 34px; font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 7px 0 rgba(0,0,0,.28);
+      touch-action: manipulation;
+      transition: transform .08s, box-shadow .08s, filter .2s;
+    }
+    .btn:hover { filter: brightness(1.06); }
+    .btn:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0,0,0,.28); }
+    .btn:focus-visible { outline: 4px solid #fff; outline-offset: 3px; box-shadow: 0 0 0 8px var(--ink); }
+    /* "Not ready yet" look. We use aria-disabled (not disabled) so the
+       button can still be tapped and Ollie can say what's missing. */
+    .btn[aria-disabled="true"] { cursor: default; filter: grayscale(.85) opacity(.55); }
+    .btn[aria-disabled="true"]:active { transform: none; box-shadow: 0 7px 0 rgba(0,0,0,.28); }
+    .btn.glow { animation: glow 1.4s ease-in-out infinite; }
+    @keyframes glow {
+      0%,100% { box-shadow: 0 7px 0 rgba(0,0,0,.28), 0 0 0 0 rgba(255,201,60,.9); }
+      50%     { box-shadow: 0 7px 0 rgba(0,0,0,.28), 0 0 0 16px rgba(255,201,60,0); }
+    }
+    .btn.nudge { animation: nudge .5s; }
+    @keyframes nudge { 20%,60% { transform: translateX(-10px); } 40%,80% { transform: translateX(10px); } }
+
+    /* Smaller phones */
+    @media (max-width: 420px) {
+      body { font-size: 18px; }
+      .ollie { width: 96px; height: 96px; }
+      .say { font-size: 21px; }
+      .nick label { min-height: 120px; font-size: 17px; }
+    }
+
+    /* =====================================================
+       6. REDUCED MOTION
+       If the device asks for less motion, everything holds still.
+       ===================================================== */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+      }
+      .bg-bubble, .swimmer, .rays, .caustics { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Decorative ocean (bubbles are added by JS) -->
+  <div class="ocean" aria-hidden="true">
+    <div class="rays"></div>
+    <div id="bubbles"></div>
+    <div class="caustics"></div>
+
+    <div class="swimmer" style="--y:18%; --d:30s; --delay:-6s; --size:70px;">
+      <svg viewBox="0 0 64 40"><path d="M48 20 L63 7 Q58 20 63 33 Z" fill="#ffb347" stroke="#16385a" stroke-width="2" stroke-linejoin="round"/><ellipse cx="28" cy="20" rx="24" ry="15" fill="#ffb347" stroke="#16385a" stroke-width="2"/><path d="M34 7 Q30 20 34 33" fill="none" stroke="#fff" stroke-width="4"/><circle cx="15" cy="16" r="4.5" fill="#fff" stroke="#16385a" stroke-width="1.5"/><circle cx="14" cy="16.5" r="2.4" fill="#16385a"/><path d="M8 25 Q11 27 14 25" fill="none" stroke="#16385a" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </div>
+    <div class="swimmer" style="--y:50%; --d:38s; --delay:-22s; --size:84px;">
+      <svg viewBox="0 0 64 40"><path d="M48 20 L63 9 Q59 20 63 31 Z" fill="#ff8fb1" stroke="#16385a" stroke-width="2" stroke-linejoin="round"/><path d="M22 6 Q30 0 38 6" fill="#ff8fb1" stroke="#16385a" stroke-width="2"/><ellipse cx="28" cy="20" rx="23" ry="14" fill="#ff8fb1" stroke="#16385a" stroke-width="2"/><circle cx="30" cy="18" r="2" fill="#ffd0de"/><circle cx="38" cy="24" r="2.5" fill="#ffd0de"/><circle cx="15" cy="16" r="4.5" fill="#fff" stroke="#16385a" stroke-width="1.5"/><circle cx="14" cy="16.5" r="2.4" fill="#16385a"/><path d="M8 25 Q11 27 14 25" fill="none" stroke="#16385a" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </div>
+    <div class="swimmer" style="--y:72%; --d:46s; --delay:-14s; --size:110px; --alpha:.35;">
+      <svg viewBox="0 0 110 40" fill="#e6f6ff"><path d="M4 12 q10 -8 20 0 l8 -6 v12 l-8 -6 q-10 8 -20 0z"/><path d="M40 26 q10 -8 20 0 l8 -6 v12 l-8 -6 q-10 8 -20 0z"/><path d="M70 10 q10 -8 20 0 l8 -6 v12 l-8 -6 q-10 8 -20 0z"/></svg>
+    </div>
+
+    <svg class="reef" viewBox="0 0 1200 240" preserveAspectRatio="xMidYMax slice">
+      <path d="M0 150 Q80 110 160 140 T320 128 T480 140 T640 120 T800 138 T960 124 T1120 140 T1200 132 V240 H0 Z" fill="#0d5f91" opacity=".5"/>
+      <g transform="translate(-20 0)"><g class="kelp" style="transform-origin:90px 240px"><path d="M90 240 C78 200 104 170 90 130 C78 98 100 72 92 40" fill="none" stroke="#1d7a4a" stroke-width="18" stroke-linecap="round"/><path d="M90 240 C78 200 104 170 90 130 C78 98 100 72 92 40" fill="none" stroke="#3cbf74" stroke-width="9" stroke-linecap="round"/></g></g>
+      <g transform="translate(30 0)"><g class="kelp k2" style="transform-origin:90px 240px"><path d="M90 240 C80 214 100 196 90 168 C82 148 98 130 92 110" fill="none" stroke="#1d7a4a" stroke-width="16" stroke-linecap="round"/><path d="M90 240 C80 214 100 196 90 168 C82 148 98 130 92 110" fill="none" stroke="#5ad08a" stroke-width="8" stroke-linecap="round"/></g></g>
+      <g transform="translate(380 0)"><g class="kelp k3" style="transform-origin:90px 240px"><path d="M90 240 C80 214 100 196 90 168 C82 148 98 130 92 110" fill="none" stroke="#1d7a4a" stroke-width="16" stroke-linecap="round"/><path d="M90 240 C80 214 100 196 90 168 C82 148 98 130 92 110" fill="none" stroke="#5ad08a" stroke-width="8" stroke-linecap="round"/></g></g>
+      <g transform="translate(680 0)"><g class="kelp k2" style="transform-origin:90px 240px"><path d="M90 240 C78 200 104 170 90 130 C78 98 100 72 92 40" fill="none" stroke="#1d7a4a" stroke-width="18" stroke-linecap="round"/><path d="M90 240 C78 200 104 170 90 130 C78 98 100 72 92 40" fill="none" stroke="#3cbf74" stroke-width="9" stroke-linecap="round"/></g></g>
+      <g transform="translate(990 0)"><g class="kelp" style="transform-origin:90px 240px"><path d="M90 240 C78 200 104 170 90 130 C78 98 100 72 92 40" fill="none" stroke="#1d7a4a" stroke-width="18" stroke-linecap="round"/><path d="M90 240 C78 200 104 170 90 130 C78 98 100 72 92 40" fill="none" stroke="#3cbf74" stroke-width="9" stroke-linecap="round"/></g></g>
+      <g transform="translate(1050 0)"><g class="kelp k3" style="transform-origin:90px 240px"><path d="M90 240 C80 214 100 196 90 168 C82 148 98 130 92 110" fill="none" stroke="#1d7a4a" stroke-width="16" stroke-linecap="round"/><path d="M90 240 C80 214 100 196 90 168 C82 148 98 130 92 110" fill="none" stroke="#5ad08a" stroke-width="8" stroke-linecap="round"/></g></g>
+      <g fill="none" stroke-linecap="round" stroke-width="11">
+        <path transform="translate(180 0)" d="M60 236 L60 196 M60 212 L42 186 M60 204 L80 176 M42 186 L36 166 M42 186 L50 168 M80 176 L74 156 M80 176 L92 160" stroke="#ff6f91"/>
+        <path transform="translate(560 6)" d="M60 236 L60 196 M60 212 L42 186 M60 204 L80 176 M42 186 L36 166 M42 186 L50 168 M80 176 L74 156 M80 176 L92 160" stroke="#ff8a5c"/>
+        <path transform="translate(900 0)" d="M60 236 L60 196 M60 212 L42 186 M60 204 L80 176 M42 186 L36 166 M42 186 L50 168 M80 176 L74 156 M80 176 L92 160" stroke="#c77dff"/>
+      </g>
+      <ellipse cx="420" cy="214" rx="46" ry="26" fill="#f59e4b"/>
+      <path d="M386 210 q10 -12 20 0 t20 0 t20 0 t20 0" stroke="#d97a2a" stroke-width="4" fill="none"/>
+      <ellipse cx="830" cy="216" rx="40" ry="22" fill="#ffc94d"/>
+      <path d="M800 212 q8 -10 16 0 t16 0 t16 0 t16 0" stroke="#e0a21f" stroke-width="4" fill="none"/>
+      <ellipse cx="320" cy="222" rx="34" ry="16" fill="#2c6e8f"/>
+      <ellipse cx="1000" cy="222" rx="30" ry="14" fill="#2c6e8f"/>
+      <path d="M0 206 Q150 186 300 202 T600 198 T900 204 T1200 196 V240 H0 Z" fill="#f2d49b"/>
+      <path d="M0 224 Q200 210 400 222 T800 218 T1200 224 V240 H0 Z" fill="#e8c27f"/>
+      <polygon points="560,202 562.9,210 571.4,210.3 564.8,215.5 567.1,223.7 560,219 552.9,223.7 555.2,215.5 548.6,210.3 557.1,210" fill="#ff8a5c" stroke="#d9603a" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M686 224 Q700 202 714 224 Z M700 224 L700 208 M693 224 L696 210 M707 224 L704 210" fill="#ffc2d1" stroke="#e98aa5" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <main>
+    <!-- The JS splits "Phish Finder" into wavy letters; screen readers still read the label -->
+    <h1 class="logo" id="logo" aria-label="Phish Finder">Phish Finder</h1>
+
+    <!-- Ollie says hi -->
+    <div class="guide">
+      <div class="ollie" id="ollie" aria-hidden="true"></div>
+      <div class="bubble" id="bubble">
+        <p class="say" id="say" aria-live="polite">Ahoy, Phish Finder! I'm Ollie the Otter. 🦦</p>
+        <p class="say-small">Pick a sea nickname, and let's catch some sneaky emails!</p>
+      </div>
+    </div>
+
+    <form class="card" id="joinForm" novalidate>
+      <div class="app-bar"><span>🐚 Shell Mail</span><span aria-hidden="true">·</span><span>Join a game</span></div>
+
+      <div class="card-body">
+        <!-- STEP 1: nickname (radio buttons, built by JS from nicknames.js) -->
+        <fieldset class="step" id="nickStep" style="border:0; margin-left:0; margin-right:0; padding:0;">
+          <legend class="step-title">
+            <span class="step-num" aria-hidden="true">1</span>
+            <span>Pick your sea nickname</span>
+          </legend>
+          <div class="nick-grid" id="nickGrid"></div>
+        </fieldset>
+
+        <!-- STEP 2: go! -->
+        <div class="dive-wrap">
+          <button class="btn" id="dive" type="submit" aria-disabled="true" aria-describedby="diveHint">🤿 Dive in!</button>
+          <p class="hint" id="diveHint"></p>
+        </div>
+      </div>
+    </form>
+  </main>
+
+  <script src="characters.js"></script>
+  <script src="nicknames.js"></script>
+  <script>
+    // =====================================================
+    // SETUP
+    // =====================================================
+    const $ = sel => document.querySelector(sel);
+    const calm = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const diveBtn   = $("#dive");
+    const say       = $("#say");
+    const bubble    = $("#bubble");
+
+    // What the player has chosen so far
+    const choice = { nickname: "" };
+
+    // =====================================================
+    // SCHOOL LINK SETTINGS (no database needed!)
+    // A teacher can share a link like:
+    //   index.html?school=Coral%20Reef%20Elementary&domain=coralreef-school.edu&teacher=Ms.%20Coral
+    // Everything after the "?" is the "query string". URLSearchParams reads
+    // it for us. We only keep the 3 names we know about and pass them on to
+    // play.html, which checks and cleans them before using them.
+    // =====================================================
+    const SCHOOL_KEYS = ["school", "domain", "teacher", "class"];
+
+    function playLink() {
+      const incoming = new URLSearchParams(location.search);
+      const outgoing = new URLSearchParams();
+      SCHOOL_KEYS.forEach(key => {
+        const value = incoming.get(key);              // null if it's not there
+        if (value) outgoing.set(key, value.slice(0, 100));
+      });
+      const query = outgoing.toString();              // "" if there's nothing to pass on
+      return query ? "play.html?" + query : "play.html";
+    }
+
+    // =====================================================
+    // THE WAVY TITLE: one <span> per letter
+    // =====================================================
+    (function buildLogo() {
+      const logo = $("#logo");
+      const text = logo.textContent;
+      logo.textContent = "";
+      [...text].forEach((ch, i) => {
+        const span = document.createElement("span");
+        span.textContent = ch === " " ? " " : ch;   // keep the space visible
+        span.style.setProperty("--i", i);
+        span.setAttribute("aria-hidden", "true");
+        logo.append(span);
+      });
+      const rod = document.createElement("span");
+      rod.className = "rod";
+      rod.textContent = " 🎣";
+      rod.style.setProperty("--i", text.length);
+      rod.setAttribute("aria-hidden", "true");
+      logo.append(rod);
+    })();
+
+    // =====================================================
+    // OLLIE
+    // =====================================================
+    const ollie = makeCharacter("ollie");        // from characters.js
+    if (ollie) $("#ollie").append(ollie);
+    else $("#ollie").textContent = "🦦";          // fallback if something's missing
+
+    function ollieSays(text, mood) {
+      say.textContent = text;                    // textContent: always safe
+      bubble.classList.remove("pop");
+      void bubble.offsetWidth;                   // restart the pop animation
+      bubble.classList.add("pop");
+      if (mood) characterReact(ollie, mood);
+    }
+
+    // =====================================================
+    // STEP 1: NICKNAME PICKER
+    // Built with createElement + textContent (never innerHTML).
+    // =====================================================
+    const grid = $("#nickGrid");
+    NICKNAMES.forEach((n, i) => {
+      const box = document.createElement("div");
+      box.className = "nick";
+
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "nickname";
+      radio.id = "nick-" + i;
+      radio.value = n.name;
+
+      const label = document.createElement("label");
+      label.htmlFor = radio.id;
+
+      const hole = document.createElement("span");
+      hole.className = "nick-porthole";
+      hole.setAttribute("aria-hidden", "true");
+      hole.textContent = n.emoji;
+
+      const name = document.createElement("span");
+      name.textContent = n.name;
+
+      label.append(hole, name);
+      box.append(radio, label);
+      grid.append(box);
+
+      radio.addEventListener("change", () => {
+        choice.nickname = n.name;
+        $("#nickStep").classList.add("step-done");
+        ollieSays(`Hi, ${n.name}! ${n.emoji} Ready? Tap Dive in!`, "happy");
+        update();
+      });
+    });
+
+    // =====================================================
+    // STEP 2: DIVE IN!
+    // =====================================================
+    function ready() {
+      return NICKNAMES.some(n => n.name === choice.nickname);
+    }
+
+    // Light the button up (or dim it) and say what's still missing.
+    function update() {
+      if (diving) return;                        // keep "Diving!" showing
+      const ok = ready();
+      diveBtn.setAttribute("aria-disabled", ok ? "false" : "true");
+      diveBtn.classList.toggle("glow", ok && !calm());
+      $("#diveHint").textContent = ok ? "" : "Pick a nickname first.";
+    }
+
+    let diving = false;                          // true once we're on our way
+
+    $("#joinForm").addEventListener("submit", e => {
+      e.preventDefault();                        // stop the normal form reload
+      if (diving) return;                        // ignore extra taps
+
+      if (!ready()) {
+        // Not ready: wiggle the button and let Ollie explain.
+        ollieSays("Pick a nickname first.", "oops");
+        if (!calm()) {
+          diveBtn.classList.remove("nudge");
+          void diveBtn.offsetWidth;
+          diveBtn.classList.add("nudge");
+        }
+        grid.querySelector("input").focus();
+        return;
+      }
+
+      // Remember the nickname for play.html (until this tab closes).
+      // try/catch: some browsers (private mode, strict settings) block storage.
+      try {
+        sessionStorage.setItem("phishfinder-nickname", choice.nickname);
+      } catch (err) {}
+
+      diving = true;
+      diveBtn.setAttribute("aria-disabled", "true");
+      diveBtn.classList.remove("glow");
+      diveBtn.textContent = "🌊 Diving!";
+      ollieSays("Here we go! 🌊", "happy");
+      const link = playLink();                   // carries ?school=...&domain=...&teacher=...
+      setTimeout(() => { location.href = link; }, calm() ? 0 : 450);
+    });
+
+    // =====================================================
+    // START UP
+    // =====================================================
+
+    // If they came BACK to this page, fill in what they picked before.
+    try {
+      const savedNick = sessionStorage.getItem("phishfinder-nickname") || "";
+      const i = NICKNAMES.findIndex(n => n.name === savedNick);
+      if (i >= 0) {
+        $("#nick-" + i).checked = true;
+        choice.nickname = savedNick;
+        $("#nickStep").classList.add("step-done");
+      }
+    } catch (err) {}
+
+    // If the browser restores this page from its back/forward cache,
+    // reset the button so it doesn't stay stuck on "Diving!".
+    window.addEventListener("pageshow", e => {
+      if (!e.persisted) return;
+      diving = false;
+      diveBtn.textContent = "🤿 Dive in!";
+      update();
+    });
+
+    update();
+
+    // Floating background bubbles (skipped for reduced motion)
+    if (!calm()) {
+      const holder = $("#bubbles");
+      for (let i = 0; i < 14; i++) {
+        const b = document.createElement("span");
+        b.className = "bg-bubble";
+        b.style.setProperty("--x", Math.random() * 100 + "%");
+        b.style.setProperty("--s", 10 + Math.random() * 26 + "px");
+        b.style.setProperty("--d", 9 + Math.random() * 10 + "s");
+        b.style.setProperty("--delay", -Math.random() * 18 + "s");
+        holder.append(b);
+      }
+    }
+  </script>
+</body>
+</html>
